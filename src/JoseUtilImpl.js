@@ -67,10 +67,33 @@ export default function getJoseUtil({ jws, KeyUtil, X509, crypto, hextob64u, b64
                 Log.error("JoseUtil._validateJwt: issuer was not provided");
                 return Promise.reject(new Error("issuer was not provided"));
             }
-            if (payload.iss !== issuer) {
-                Log.error("JoseUtil._validateJwt: Invalid issuer in token", payload.iss);
-                return Promise.reject(new Error("Invalid issuer in token: " + payload.iss));
+            // payload.iss is the actual issuer and 
+            // issuer is the expected issuer provided in the config/metadata
+            // in the case of Multi-Tenant, the issuer is in the form of https://login.microsoftonline.com/{tenantid}/v2.0
+            //   and the tid claim of the payload is the tenantid
+            // So let's first test if the issuer is in the form of https://login.microsoftonline.com/{tenantid}/v2.0
+            const multiTenantRe = /^http.+microsoft.+\/({tenantid})\/v2.0$/;
+            if (multiTenantRe.test(issuer)) {
+                // if so, let's get the tenantid from the issuer
+                const extractTid = /^http.+microsoft.+\/(?<tid>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/v2.0$/;
+                const match = extractTid.exec(payload.iss);
+                if (!match || !match.groups || !match.groups.tid) {
+                    Log.error("JoseUtil._validateJwt: Invalid iss claim in token. Expecting a multi tenant compatible format", payload.iss);
+                    return Promise.reject(new Error("Invalid iss claim in token. Expecting a multi tenant compatible format: " + payload.iss));
+                }
+                // and compare it with the tid claim of the payload
+                if (payload.tid !== match.groups.tid) {
+                    Log.error("JoseUtil._validateJwt: Invalid tenantid in token", payload.tid);
+                    return Promise.reject(new Error("Invalid tenantid in token: " + payload.tid));
+                }
+            } else {
+                // test the issuer in the payload with the issuer provided in the config/metadata
+                if (payload.iss !== issuer) { 
+                    Log.error("JoseUtil._validateJwt: Invalid issuer in token", payload.iss);
+                    return Promise.reject(new Error("Invalid issuer in token: " + payload.iss));
+                }
             }
+
 
             if (!payload.aud) {
                 Log.error("JoseUtil._validateJwt: aud was not provided");

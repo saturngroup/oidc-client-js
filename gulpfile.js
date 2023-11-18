@@ -12,6 +12,11 @@ var TerserPlugin = require('terser-webpack-plugin');
 var npmEntry ='./index.js';
 var classicEntry = ['babel-polyfill', npmEntry];
 
+console.log("----------------------------------------");
+console.log("Use node version v16.x and not above  ");
+console.log(" else you will have an error like 0308010C:digital envelope routines::unsupported");
+console.log("----------------------------------------");
+
 const optimization = {
   minimizer: [new TerserPlugin({
     extractComments: false,
